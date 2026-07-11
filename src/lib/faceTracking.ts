@@ -54,8 +54,8 @@ export class FaceTracker {
     if (this.faceMesh) return;
 
     this.faceMesh = new FaceMesh({
-      locateFile: (file: string) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`,
+      // Apuntar a modelos bundleados localmente (más rápido + sin dependencia CDN)
+      locateFile: (file: string) => `/models/${file}`,
     });
 
     this.faceMesh.setOptions({
@@ -69,9 +69,11 @@ export class FaceTracker {
 
     this.faceMesh.onResults(this.handleResults);
 
+    // Warm-up: pre-cargar el modelo inmediatamente
     if (this.debug) {
-      console.log('[FaceTracker] Inicializado, options aplicadas');
+      console.log('[FaceTracker] Warming up model...');
     }
+    // El setOptions y onResults ya disparan la carga del WASM/modelo
   }
 
   private handleResults = (results: Results) => {

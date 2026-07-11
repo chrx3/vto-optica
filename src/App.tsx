@@ -10,6 +10,11 @@ import type { Lens } from './types/lens';
 // Activar debug via ?debug=1 en la URL
 const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
 
+interface DebugLog {
+  ts: number;
+  msg: string;
+}
+
 export default function App() {
   const [selectedLens, setSelectedLens] = useState<Lens>(
     CATALOG.find((l) => l.id === DEFAULT_LENS_ID) ?? CATALOG[0]
@@ -20,6 +25,7 @@ export default function App() {
   const [renderSize, setRenderSize] = useState({ width: 0, height: 0 });
   const [frameCount, setFrameCount] = useState(0);
   const [detectionCount, setDetectionCount] = useState(0);
+  const [debugLog, setDebugLog] = useState<DebugLog[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const trackerRef = useRef<FaceTracker | null>(null);
@@ -28,51 +34,78 @@ export default function App() {
   const frameCountRef = useRef(0);
   const detectionCountRef = useRef(0);
 
+  const pushLog = useCallback(
+    (msg: string) => {
+      if (!DEBUG) return;
+      console.log(msg);
+      setDebugLog((prev) => {
+        const next = [...prev, { ts: Date.now(), msg }];
+        // Mantener solo últimas 8 entradas
+        return next.slice(-8);
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    pushLog('[App] Mounted');
+  }, [pushLog]);
+
   // Precargar imagen del lente seleccionado
   useEffect(() => {
+    pushLog(`[App] Loading lens: ${selectedLens.id}`);
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       setLensImage(img);
-      if (DEBUG) console.log('[App] Lens image cargada:', selectedLens.name, img.naturalWidth, 'x', img.naturalHeight);
+      pushLog(`[App] Lens loaded: ${selectedLens.id} (${img.naturalWidth}x${img.naturalHeight})`);
     };
     img.onerror = () => {
       console.error('[App] No se pudo cargar:', selectedLens.imagePath);
+      pushLog(`[App] Lens FAILED: ${selectedLens.imagePath}`);
       setLensImage(null);
     };
     img.src = selectedLens.imagePath;
-  }, [selectedLens]);
+  }, [selectedLens, pushLog]);
 
   // Inicializar FaceTracker una vez que el video esté listo
   const handleVideoReady = useCallback((video: HTMLVideoElement) => {
+    pushLog('[App] handleVideoReady called');
     videoRef.current = video;
 
     const updateRenderSize = () => {
       const rect = video.getBoundingClientRect();
       setRenderSize({ width: rect.width, height: rect.height });
-      if (DEBUG) console.log('[App] Video size:', rect.width, 'x', rect.height);
+      pushLog(`[App] render size: ${rect.width}x${rect.height}, video: ${video.videoWidth}x${video.videoHeight}`);
     };
 
     updateRenderSize();
-    window.addEventListener('resize', updateRenderSize);
-    video.addEventListener('loadedmetadata', updateRenderSize);
+
+    const onMeta = () => {
+      pushLog(`[App] loadedmetadata: video ${video.videoWidth}x${video.videoHeight}`);
+      updateRenderSize();
+    };
+    video.addEventListener('loadedmetadata', onMeta);
 
     const tracker = new FaceTracker((result) => {
-      setLandmarks(result);
       if (result) {
         detectionCountRef.current += 1;
       }
+      setLandmarks(result);
     }, DEBUG);
 
     trackerRef.current = tracker;
+    pushLog('[App] Initializing FaceTracker...');
 
     tracker.initialize().then(() => {
-      if (DEBUG) console.log('[App] FaceTracker ready, starting loop');
+      pushLog('[App] FaceTracker initialized, starting RAF loop');
 
-      // Loop de procesamiento: por cada frame, enviamos a MediaPipe
       const processLoop = async () => {
         const v = videoRef.current;
-        if (!v || !trackerRef.current) return;
+        if (!v || !trackerRef.current) {
+          pushLog('[App] RAF loop exit (video or tracker missing)');
+          return;
+        }
 
         frameCountRef.current += 1;
         if (frameCountRef.current % 30 === 0) {
@@ -84,6 +117,8 @@ export default function App() {
           isProcessingRef.current = true;
           try {
             await trackerRef.current.processFrame(v);
+          } catch (e) {
+            pushLog(`[App] processFrame threw: ${e}`);
           } finally {
             isProcessingRef.current = false;
           }
@@ -93,27 +128,31 @@ export default function App() {
       };
 
       rafRef.current = requestAnimationFrame(processLoop);
+    }).catch((e) => {
+      pushLog(`[App] tracker.initialize() failed: ${e}`);
     });
+  }, [pushLog]);
 
-    return () => {
-      window.removeEventListener('resize', updateRenderSize);
-      video.removeEventListener('loadedmetadata', updateRenderSize);
-    };
-  }, []);
+  const handleError = useCallback(
+    (msg: string) => {
+      pushLog(`[App] camera error: ${msg}`);
+      setError(msg);
+    },
+    [pushLog]
+  );
 
   // Cleanup al desmontar
   useEffect(() => {
     return () => {
+      pushLog('[App] Unmounting');
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
       trackerRef.current?.dispose();
     };
-  }, []);
+  }, [pushLog]);
 
   // Calcular transformación del lente
-  // CRÍTICO: usamos videoWidth/Height REALES del stream (no del DOM),
-  // porque MediaPipe normaliza landmarks al aspect ratio del video real.
   const video = videoRef.current;
   const transform =
     landmarks && renderSize.width > 0 && lensImage && video && video.videoWidth > 0
@@ -130,7 +169,7 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black">
-      <CameraView onVideoReady={handleVideoReady} onError={setError} />
+      <CameraView onVideoReady={handleVideoReady} onError={handleError} />
 
       <GlassesOverlay
         video={video}
@@ -140,7 +179,7 @@ export default function App() {
         height={renderSize.height}
       />
 
-      {/* Header minimalista */}
+      {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
         <h1 className="text-white/90 text-sm font-medium tracking-wide">
           Probador Virtual
@@ -149,14 +188,18 @@ export default function App() {
           {landmarks ? 'Cara detectada ✓' : 'Buscando cara...'}
         </p>
         {DEBUG && (
-          <p className="text-white/30 text-[10px] font-mono mt-1">
-            frames: {frameCount} | detections: {detectionCount} | rate: {detectionRate.toFixed(1)}%
-            {video && ` | video: ${video.videoWidth}x${video.videoHeight}`}
-          </p>
+          <div className="text-white/30 text-[10px] font-mono mt-1 space-y-0.5">
+            <div>frames: {frameCount} | det: {detectionCount} | rate: {detectionRate.toFixed(1)}%</div>
+            {video && <div>video: {video.videoWidth}x{video.videoHeight} | ready: {video.readyState}</div>}
+            <div className="mt-1 max-h-32 overflow-y-auto">
+              {debugLog.slice(-5).map((log, i) => (
+                <div key={i} className="opacity-70">{log.msg}</div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Error toast */}
       {error && (
         <div className="absolute top-16 left-4 right-4 z-20 bg-red-500/90 text-white text-xs px-3 py-2 rounded-lg">
           {error}
