@@ -172,24 +172,70 @@ export class FaceTracker {
     }
 
     try {
-      // Dibujar frame del video a un canvas offscreen — MediaPipe trabaja
-      // mucho mejor con canvas que con <video> directo (especialmente iOS Safari
-      // donde el video element tiene quirks cuando está oculto o tiene playsInline).
-      // El frame se dibuja sin espejo para que MediaPipe vea la cara "natural"
-      // (el canvas visible es el que muestra el video mirrored).
       if (!this.frameCanvas) {
         this.frameCanvas = document.createElement('canvas');
       }
       const canvas = this.frameCanvas;
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      const srcW = video.videoWidth;
+      const srcH = video.videoHeight;
+
+      // Detección de orientación:
+      // En Android Chrome, getUserMedia con cámara frontal a veces entrega
+      // el frame rotado 90° (videoWidth=1280, videoHeight=720 cuando se ve
+      // portrait en pantalla). MediaPipe espera coordenadas upright.
+      //
+      // Reglas:
+      // - Si videoWidth > videoHeight Y el preview es portrait, rotar.
+      // - El atributo CSS del <video> lo dice: aspect-ratio del bounding rect.
+      const isSrcLandscape = srcW > srcH;
+      const videoRect = video.getBoundingClientRect();
+      const isDisplayPortrait = videoRect.height > videoRect.width;
+
+      let drawW = srcW;
+      let drawH = srcH;
+      if (isSrcLandscape && isDisplayPortrait) {
+        // Swap: rotar 90° CCW al dibujar
+        drawW = srcH;
+        drawH = srcW;
+        if (canvas.width !== drawW || canvas.height !== drawH) {
+          canvas.width = drawW;
+          canvas.height = drawH;
+        }
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.save();
+        ctx.translate(0, canvas.height);
+        ctx.rotate(-Math.PI / 2);
+        ctx.drawImage(video, 0, 0, srcW, srcH);
+        ctx.restore();
+      } else {
+        if (canvas.width !== drawW || canvas.height !== drawH) {
+          canvas.width = drawW;
+          canvas.height = drawH;
+        }
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, drawW, drawH);
       }
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return;
+
+      // Verificación de contenido: leer pixel central. Si es negro,
+      // MediaPipe nunca va a detectar nada.
+      if (this.debug && !this._pixelChecked) {
+        this._pixelChecked = true;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          const cx = Math.floor(canvas.width / 2);
+          const cy = Math.floor(canvas.height / 2);
+          const px = ctx.getImageData(cx, cy, 1, 1).data;
+          console.log(
+            `[FaceTracker] diag: src=${srcW}x${srcH} ` +
+            `rect=${Math.round(videoRect.width)}x${Math.round(videoRect.height)} ` +
+            `rotated=${isSrcLandscape && isDisplayPortrait} ` +
+            `canvas=${canvas.width}x${canvas.height} ` +
+            `centerPixel rgba=${px[0]},${px[1]},${px[2]},${px[3]}`
+          );
+        }
       }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       await this.faceMesh.send({ image: canvas });
     } catch (err) {
@@ -198,6 +244,8 @@ export class FaceTracker {
       }
     }
   }
+
+  private _pixelChecked = false;
 
   private frameCanvas: HTMLCanvasElement | null = null;
 
