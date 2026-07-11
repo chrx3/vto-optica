@@ -7,9 +7,12 @@
     <meta name="description" content="Probador virtual de lentes - VTO MVP" />
     <title>VTO - Probador Virtual</title>
     <!-- MediaPipe se carga como script UMD para evitar problemas de bundling.
-         El modelo (.binarypb) y WASM se sirven desde /models/. -->
-    <script src="/models/face_mesh.js" crossorigin="anonymous"></script>
-    <script src="/models/camera_utils.js" crossorigin="anonymous"></script>
+         El modelo (.binarypb) y WASM se sirven desde /models/.
+         Sin `crossorigin` porque el script es same-origin y con CORS
+         el browser lo descargaba pero NO lo ejecutaba (CORS requirement
+         para anonymous cross-origin scripts). -->
+    <script src="/models/face_mesh.js"></script>
+    <script src="/models/camera_utils.js"></script>
   </head>
   <body class="bg-surface-900">
     <div id="root"></div>

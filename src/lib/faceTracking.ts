@@ -86,8 +86,26 @@ export class FaceTracker {
     if (this.faceMesh) return;
 
     if (!window.FaceMesh) {
+      // Causas comunes:
+      // 1. index.html no carga <script src="/models/face_mesh.js"> antes del bundle
+      // 2. El script tiene crossorigin="anonymous" pero nginx no envía
+      //    Access-Control-Allow-Origin → browser descarga pero NO ejecuta
+      // 3. Cache del browser con versión vieja
+      const hasScriptTag = Array.from(document.scripts).some((s) =>
+        s.src.includes('/models/face_mesh.js')
+      );
+      const scriptTag = Array.from(document.scripts).find((s) =>
+        s.src.includes('/models/face_mesh.js')
+      );
+      const crossorigin = scriptTag?.crossOrigin;
+
       throw new Error(
-        'window.FaceMesh no está disponible. Asegurate que index.html carga /models/face_mesh.js antes de la app.'
+        'window.FaceMesh no está disponible.\n' +
+          `  - <script> tag presente: ${hasScriptTag}\n` +
+          `  - crossorigin attr: ${crossorigin || '(none)'}\n` +
+          '  - Si crossorigin="anonymous" está, nginx debe devolver\n' +
+          '    Access-Control-Allow-Origin para /models/.\n' +
+          '  - Solución: usar crossorigin vacío o "" (same-origin).'
       );
     }
 
