@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Modern Square / Rectangular Glasses
+  Author: original artwork, Public Domain (CC0)
+  Style:  rectangular lenses with rounded corners, thick black frames,
+          classic keyhole bridge, short temples (stubs only).
+  Canvas 1024 x 480 keeps the bounding box tight to the glasses.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 480" width="1024" height="480">
+  <defs>
+    <linearGradient id="frameGlossSquare" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#2a2a2a"/>
+      <stop offset="50%"  stop-color="#141414"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <radialGradient id="lensGlossSquare" cx="35%" cy="25%" r="60%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="50%"  stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Keyhole bridge — top arch -->
+  <path d="M 470 210 Q 512 188 554 210"
+        fill="none" stroke="url(#frameGlossSquare)" stroke-width="12"
+        stroke-linecap="round"/>
+  <!-- Lower keyhole arches of bridge -->
+  <path d="M 502 205 Q 512 220 522 205"
+        fill="none" stroke="#0e0e0e" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Temples — short stubs -->
+  <path d="M 235 210 L 130 195"
+        fill="none" stroke="url(#frameGlossSquare)" stroke-width="14"
+        stroke-linecap="round"/>
+  <path d="M 789 210 L 894 195"
+        fill="none" stroke="url(#frameGlossSquare)" stroke-width="14"
+        stroke-linecap="round"/>
+
+  <!-- LEFT lens — thick rectangular frame with rounded corners -->
+  <rect x="220" y="140" width="280" height="190" rx="32" ry="32"
+        fill="#0d0d0d" fill-opacity="0.05"
+        stroke="url(#frameGlossSquare)" stroke-width="18"/>
+  <rect x="220" y="140" width="280" height="190" rx="32" ry="32"
+        fill="url(#lensGlossSquare)"/>
+  <!-- Inner highlight on top edge -->
+  <path d="M 250 150 Q 360 138 470 150" fill="none"
+        stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- RIGHT lens -->
+  <rect x="524" y="140" width="280" height="190" rx="32" ry="32"
+        fill="#0d0d0d" fill-opacity="0.05"
+        stroke="url(#frameGlossSquare)" stroke-width="18"/>
+  <rect x="524" y="140" width="280" height="190" rx="32" ry="32"
+        fill="url(#lensGlossSquare)"/>
+  <path d="M 554 150 Q 664 138 774 150" fill="none"
+        stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- Nose pads -->
+  <circle cx="455" cy="240" r="6" fill="#0e0e0e"/>
+  <circle cx="569" cy="240" r="6" fill="#0e0e0e"/>
+</svg>

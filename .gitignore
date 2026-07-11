@@ -1,0 +1,21 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.local
+.vite
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Vite config emit (no queremos los .d.ts/.js que genera tsc -b)
+vite.config.d.ts
+vite.config.js
+
+# npm
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/

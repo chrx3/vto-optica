@@ -1,0 +1,32 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    // Necesario para acceso via HTTPS en testing móvil (cloudflared/ngrok)
+    strictPort: false,
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    // MediaPipe es pesado, lo separamos en su propio chunk
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          mediapipe: [
+            '@mediapipe/face_mesh',
+            '@mediapipe/camera_utils',
+            '@mediapipe/drawing_utils',
+          ],
+        },
+      },
+    },
+  },
+})

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Classic Round Glasses (John Lennon style)
+  Author: original artwork, Public Domain (CC0)
+  Style:  two perfectly round lenses, thin dark frames, simple bridge,
+          very short temples (just stubs at the hinges — for a VTO demo
+          the rest of the arm is hidden behind the head anyway).
+  Canvas 1024 x 600 keeps the bounding box tight to the glasses,
+  no wasted empty pixels.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 600" width="1024" height="600">
+  <defs>
+    <radialGradient id="lensGlossRound" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Bridge between lenses -->
+  <path d="M 482 280 Q 512 265 542 280"
+        fill="none" stroke="#1a1a1a" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Temples — short stubs visible just outside each hinge -->
+  <path d="M 200 290 L 110 270"
+        fill="none" stroke="#1a1a1a" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 824 290 L 914 270"
+        fill="none" stroke="#1a1a1a" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Left lens frame (ring) -->
+  <circle cx="270" cy="300" r="170"
+          fill="none" stroke="#1a1a1a" stroke-width="22"/>
+  <circle cx="270" cy="300" r="159" fill="#0a0a0a" fill-opacity="0.08"/>
+  <circle cx="270" cy="300" r="159" fill="url(#lensGlossRound)"/>
+
+  <!-- Right lens frame (ring) -->
+  <circle cx="754" cy="300" r="170"
+          fill="none" stroke="#1a1a1a" stroke-width="22"/>
+  <circle cx="754" cy="300" r="159" fill="#0a0a0a" fill-opacity="0.08"/>
+  <circle cx="754" cy="300" r="159" fill="url(#lensGlossRound)"/>
+
+  <!-- Nose pads — small dark dots -->
+  <circle cx="455" cy="330" r="6" fill="#1a1a1a"/>
+  <circle cx="569" cy="330" r="6" fill="#1a1a1a"/>
+</svg>
