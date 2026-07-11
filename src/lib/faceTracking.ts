@@ -43,9 +43,11 @@ export type FaceMeshCallback = (result: FaceLandmarksResult | null) => void;
 export class FaceTracker {
   private faceMesh: FaceMesh | null = null;
   private callback: FaceMeshCallback;
+  private debug: boolean;
 
-  constructor(callback: FaceMeshCallback) {
+  constructor(callback: FaceMeshCallback, debug = false) {
     this.callback = callback;
+    this.debug = debug;
   }
 
   async initialize(): Promise<void> {
@@ -59,20 +61,34 @@ export class FaceTracker {
     this.faceMesh.setOptions({
       maxNumFaces: 1,
       refineLandmarks: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      // Bajamos el threshold: iOS Safari y condiciones de luz imperfectas
+      // suelen fallar con 0.5. 0.3 es el sweet spot para tracking robusto.
+      minDetectionConfidence: 0.3,
+      minTrackingConfidence: 0.3,
     });
 
     this.faceMesh.onResults(this.handleResults);
+
+    if (this.debug) {
+      console.log('[FaceTracker] Inicializado, options aplicadas');
+    }
   }
 
   private handleResults = (results: Results) => {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+      if (this.debug) {
+        console.log('[FaceTracker] No face detected');
+      }
       this.callback(null);
       return;
     }
 
     const landmarks = results.multiFaceLandmarks[0];
+
+    if (this.debug && Math.random() < 0.05) {
+      // Loggear ~5% de los frames para no saturar la consola
+      console.log('[FaceTracker] Face detected, first 5 landmarks:', landmarks.slice(0, 5));
+    }
 
     const pick = (idx: number): NormalizedLandmark => ({
       x: landmarks[idx].x,
@@ -92,13 +108,38 @@ export class FaceTracker {
 
   /**
    * Procesa un frame de video.
-   * Retorna cuando MediaPipe termina el procesamiento.
+   *
+   * CRÍTICO: videoWidth y videoHeight deben ser > 0. Si el video es mirror
+   * via CSS scaleX(-1), MediaPipe ve el frame SIN espejo (que es lo que
+   * queremos para que los landmarks correspondan a la realidad del usuario).
    */
   async processFrame(video: HTMLVideoElement): Promise<void> {
     if (!this.faceMesh) {
       throw new Error('FaceTracker no inicializado. Llama initialize() primero.');
     }
-    await this.faceMesh.send({ image: video });
+
+    // Validaciones que evitan el "buscando cara" infinito
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      if (this.debug) {
+        console.warn('[FaceTracker] Video sin dimensiones:', video.videoWidth, video.videoHeight);
+      }
+      return;
+    }
+
+    if (video.readyState < 2) {
+      if (this.debug) {
+        console.warn('[FaceTracker] Video no listo, readyState:', video.readyState);
+      }
+      return;
+    }
+
+    try {
+      await this.faceMesh.send({ image: video });
+    } catch (err) {
+      if (this.debug) {
+        console.error('[FaceTracker] Error procesando frame:', err);
+      }
+    }
   }
 
   dispose(): void {

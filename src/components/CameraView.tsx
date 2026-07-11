@@ -10,8 +10,11 @@ interface CameraViewProps {
  *
  * - playsInline es CRÍTICO para iOS Safari (sin esto, abre en fullscreen)
  * - Usamos la cámara frontal por defecto (facingMode: 'user')
- * - El video se renderiza mirrored (scaleX(-1)) para que se sienta natural
- *   (como un espejo), igual que el lente overlay encima.
+ * - El video NO se renderiza mirrored acá. El espejo se aplica SOLO en
+ *   el canvas overlay (GlassesOverlay), porque MediaPipe necesita ver
+ *   la cara en su orientación real para detectar landmarks correctamente.
+ *   El usuario ve el resultado final (video + lente) como espejo, que es
+ *   lo intuitivo (como verse en un espejo real).
  */
 export function CameraView({ onVideoReady, onError }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,7 +70,7 @@ export function CameraView({ onVideoReady, onError }: CameraViewProps) {
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
+        style={{ opacity: 0 }}
       />
       {status === 'requesting' && (
         <div className="absolute inset-0 flex items-center justify-center text-white/80 text-sm">
