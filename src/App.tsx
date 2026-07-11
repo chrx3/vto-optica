@@ -100,6 +100,7 @@ export default function App() {
       }
       setLandmarks(result);
     }, DEBUG);
+    tracker.setDiagCallback(pushLog);
 
     trackerRef.current = tracker;
     pushLog('[App] Initializing FaceTracker...');

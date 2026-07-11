@@ -76,10 +76,16 @@ export class FaceTracker {
   private faceMesh: any = null;
   private callback: FaceMeshCallback;
   private debug: boolean;
+  private _diagCallback: ((msg: string) => void) | null = null;
 
   constructor(callback: FaceMeshCallback, debug = false) {
     this.callback = callback;
     this.debug = debug;
+    this._diagCallback = null;
+  }
+
+  setDiagCallback(cb: ((msg: string) => void) | null) {
+    this._diagCallback = cb;
   }
 
   async initialize(): Promise<void> {
@@ -218,22 +224,35 @@ export class FaceTracker {
         ctx.drawImage(video, 0, 0, drawW, drawH);
       }
 
-      // Verificación de contenido: leer pixel central. Si es negro,
-      // MediaPipe nunca va a detectar nada.
-      if (this.debug && !this._pixelChecked) {
-        this._pixelChecked = true;
+      // Verificación de contenido: leer pixel central + 4 esquinas.
+      // Si todos son negros/transparentes, MediaPipe nunca va a detectar nada.
+      if (this.debug) {
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
-          const cx = Math.floor(canvas.width / 2);
-          const cy = Math.floor(canvas.height / 2);
-          const px = ctx.getImageData(cx, cy, 1, 1).data;
-          console.log(
+          const samples = [
+            { name: 'TL', x: 10, y: 10 },
+            { name: 'TR', x: canvas.width - 10, y: 10 },
+            { name: 'C', x: Math.floor(canvas.width / 2), y: Math.floor(canvas.height / 2) },
+            { name: 'BL', x: 10, y: canvas.height - 10 },
+            { name: 'BR', x: canvas.width - 10, y: canvas.height - 10 },
+          ];
+          const pxStr = samples
+            .map((s) => {
+              const px = ctx.getImageData(s.x, s.y, 1, 1).data;
+              return `${s.name}=${px[0]},${px[1]},${px[2]},${px[3]}`;
+            })
+            .join(' ');
+          const msg =
             `[FaceTracker] diag: src=${srcW}x${srcH} ` +
             `rect=${Math.round(videoRect.width)}x${Math.round(videoRect.height)} ` +
             `rotated=${isSrcLandscape && isDisplayPortrait} ` +
             `canvas=${canvas.width}x${canvas.height} ` +
-            `centerPixel rgba=${px[0]},${px[1]},${px[2]},${px[3]}`
-          );
+            `px ${pxStr}`;
+          if (!this._lastDiagTs || Date.now() - this._lastDiagTs > 2000) {
+            this._lastDiagTs = Date.now();
+            this._diagCallback?.(msg);
+            console.log(msg);
+          }
         }
       }
 
@@ -245,7 +264,7 @@ export class FaceTracker {
     }
   }
 
-  private _pixelChecked = false;
+  private _lastDiagTs = 0;
 
   private frameCanvas: HTMLCanvasElement | null = null;
 
