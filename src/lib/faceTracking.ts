@@ -172,13 +172,34 @@ export class FaceTracker {
     }
 
     try {
-      await this.faceMesh.send({ image: video });
+      // Dibujar frame del video a un canvas offscreen — MediaPipe trabaja
+      // mucho mejor con canvas que con <video> directo (especialmente iOS Safari
+      // donde el video element tiene quirks cuando está oculto o tiene playsInline).
+      // El frame se dibuja sin espejo para que MediaPipe vea la cara "natural"
+      // (el canvas visible es el que muestra el video mirrored).
+      if (!this.frameCanvas) {
+        this.frameCanvas = document.createElement('canvas');
+      }
+      const canvas = this.frameCanvas;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      await this.faceMesh.send({ image: canvas });
     } catch (err) {
       if (this.debug) {
         console.error('[FaceTracker] Error procesando frame:', err);
       }
     }
   }
+
+  private frameCanvas: HTMLCanvasElement | null = null;
 
   dispose(): void {
     this.faceMesh?.close();
