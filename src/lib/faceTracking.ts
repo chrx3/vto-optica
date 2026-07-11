@@ -1,11 +1,45 @@
 /**
  * Wrapper de MediaPipe Face Mesh.
  *
- * Inicializa el modelo y entrega landmarks normalizados (0-1) por frame.
- * 100% client-side, no requiere backend.
+ * NOTA: MediaPipe está pensado para cargarse como <script> global (UMD),
+ * no como módulo ES6. Por eso el index.html carga face_mesh.js y
+ * camera_utils.js directamente, y acá accedemos via window.FaceMesh.
+ *
+ * Bundling con Rollup/Vite rompe los internal module references de MediaPipe,
+ * por eso este approach.
  */
 
-import { FaceMesh, type Results } from '@mediapipe/face_mesh';
+// Declarar los globales que carga index.html
+declare global {
+  interface Window {
+    FaceMesh: any;
+    Camera: any;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace ac {
+    class FaceMesh {
+      constructor(config: { locateFile: (file: string) => string });
+      setOptions(options: FaceMeshOptions): void;
+      onResults(callback: (results: FaceMeshResults) => void): void;
+      send(input: { image: HTMLVideoElement }): Promise<void>;
+      close(): void;
+    }
+  }
+}
+
+interface FaceMeshOptions {
+  maxNumFaces?: number;
+  refineLandmarks?: boolean;
+  minDetectionConfidence?: number;
+  minTrackingConfidence?: number;
+}
+
+interface FaceMeshResults {
+  multiFaceLandmarks?: Array<
+    Array<{ x: number; y: number; z: number }>
+  >;
+}
 
 // Landmarks clave para posicionamiento de lentes:
 //   33  = esquina externa ojo derecho (vista del usuario = izquierda en espejo)
@@ -28,20 +62,18 @@ export interface NormalizedLandmark {
 }
 
 export interface FaceLandmarksResult {
-  // Landmarks normalizados relevantes para lentes
   leftEyeOuter: NormalizedLandmark;
   rightEyeOuter: NormalizedLandmark;
   leftEyeInner: NormalizedLandmark;
   rightEyeInner: NormalizedLandmark;
   noseBridge: NormalizedLandmark;
-  // Todos los landmarks por si los necesitamos
   all: NormalizedLandmark[];
 }
 
 export type FaceMeshCallback = (result: FaceLandmarksResult | null) => void;
 
 export class FaceTracker {
-  private faceMesh: FaceMesh | null = null;
+  private faceMesh: any = null;
   private callback: FaceMeshCallback;
   private debug: boolean;
 
@@ -53,32 +85,33 @@ export class FaceTracker {
   async initialize(): Promise<void> {
     if (this.faceMesh) return;
 
-    this.faceMesh = new FaceMesh({
-      // Apuntar a modelos bundleados localmente (más rápido + sin dependencia CDN)
+    if (!window.FaceMesh) {
+      throw new Error(
+        'window.FaceMesh no está disponible. Asegurate que index.html carga /models/face_mesh.js antes de la app.'
+      );
+    }
+
+    this.faceMesh = new window.FaceMesh({
       locateFile: (file: string) => `/models/${file}`,
     });
 
     this.faceMesh.setOptions({
       maxNumFaces: 1,
       refineLandmarks: false,
-      // Bajamos el threshold: iOS Safari y condiciones de luz imperfectas
-      // suelen fallar con 0.5. 0.3 es el sweet spot para tracking robusto.
       minDetectionConfidence: 0.3,
       minTrackingConfidence: 0.3,
     });
 
     this.faceMesh.onResults(this.handleResults);
 
-    // Warm-up: pre-cargar el modelo inmediatamente
     if (this.debug) {
-      console.log('[FaceTracker] Warming up model...');
+      console.log('[FaceTracker] Inicializado correctamente');
     }
-    // El setOptions y onResults ya disparan la carga del WASM/modelo
   }
 
-  private handleResults = (results: Results) => {
+  private handleResults = (results: FaceMeshResults) => {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-      if (this.debug) {
+      if (this.debug && Math.random() < 0.02) {
         console.log('[FaceTracker] No face detected');
       }
       this.callback(null);
@@ -87,9 +120,8 @@ export class FaceTracker {
 
     const landmarks = results.multiFaceLandmarks[0];
 
-    if (this.debug && Math.random() < 0.05) {
-      // Loggear ~5% de los frames para no saturar la consola
-      console.log('[FaceTracker] Face detected, first 5 landmarks:', landmarks.slice(0, 5));
+    if (this.debug && Math.random() < 0.02) {
+      console.log('[FaceTracker] Face detected, 468 landmarks');
     }
 
     const pick = (idx: number): NormalizedLandmark => ({
@@ -108,30 +140,16 @@ export class FaceTracker {
     });
   };
 
-  /**
-   * Procesa un frame de video.
-   *
-   * CRÍTICO: videoWidth y videoHeight deben ser > 0. Si el video es mirror
-   * via CSS scaleX(-1), MediaPipe ve el frame SIN espejo (que es lo que
-   * queremos para que los landmarks correspondan a la realidad del usuario).
-   */
   async processFrame(video: HTMLVideoElement): Promise<void> {
     if (!this.faceMesh) {
       throw new Error('FaceTracker no inicializado. Llama initialize() primero.');
     }
 
-    // Validaciones que evitan el "buscando cara" infinito
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      if (this.debug) {
-        console.warn('[FaceTracker] Video sin dimensiones:', video.videoWidth, video.videoHeight);
-      }
       return;
     }
 
     if (video.readyState < 2) {
-      if (this.debug) {
-        console.warn('[FaceTracker] Video no listo, readyState:', video.readyState);
-      }
       return;
     }
 
@@ -149,3 +167,5 @@ export class FaceTracker {
     this.faceMesh = null;
   }
 }
+
+export {};

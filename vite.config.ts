@@ -17,16 +17,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     // MediaPipe es pesado, lo separamos en su propio chunk
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          mediapipe: [
-            '@mediapipe/face_mesh',
-            '@mediapipe/camera_utils',
-            '@mediapipe/drawing_utils',
-          ],
-        },
-      },
-    },
+    // MediaPipe se carga via <script> en index.html (UMD), no se bundlea.
+    // El manualChunks ya no es necesario.
   },
 })

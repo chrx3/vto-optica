@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="description" content="Probador virtual de lentes - VTO MVP" />
     <title>VTO - Probador Virtual</title>
+    <!-- MediaPipe se carga como script UMD para evitar problemas de bundling.
+         El modelo (.binarypb) y WASM se sirven desde /models/. -->
+    <script src="/models/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="/models/camera_utils.js" crossorigin="anonymous"></script>
   </head>
   <body class="bg-surface-900">
     <div id="root"></div>
