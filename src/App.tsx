@@ -10,6 +10,13 @@ import type { Lens } from './types/lens';
 // Activar debug via ?debug=1 en la URL
 const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
 
+// Telemetría inicial: confirmar que MediaPipe se cargó antes que el bundle de la app
+if (DEBUG) {
+  console.log('[Boot] window.FaceMesh:', typeof (window as any).FaceMesh);
+  console.log('[Boot] window.drawConnectors:', typeof (window as any).drawConnectors);
+  console.log('[Boot] window.Camera:', typeof (window as any).Camera);
+}
+
 interface DebugLog {
   ts: number;
   msg: string;
